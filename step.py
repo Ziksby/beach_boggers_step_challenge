@@ -1492,18 +1492,8 @@ else:
         # Get today's date
         today = date.today()
         
-        # Placeholder for challenge start date (you could make this configurable)
-        # For now, let's assume it starts on the next Monday if not specified
-        if 'manual_start_date' not in st.session_state:
-            # Find the next Monday
-            days_until_monday = (7 - today.weekday()) % 7
-            if days_until_monday == 0:  # If today is Monday
-                days_until_monday = 7  # Set to next Monday
-            next_monday = today + timedelta(days=days_until_monday)
-            st.session_state.manual_start_date = next_monday
-        
-        # Create countdown
-        challenge_start = st.session_state.manual_start_date
+        # Fixed start date: April 10th
+        challenge_start = datetime.datetime(2025, 4, 10).date()
         days_to_start = (challenge_start - today).days
         
         if days_to_start > 0:
@@ -1524,18 +1514,6 @@ else:
                 <p class='dark-text'>Keep stepping and check back soon!</p>
             </div>
             """, unsafe_allow_html=True)
-        
-        # Let admin set a different start date
-        with st.expander("🔧 Admin: Set Challenge Start Date"):
-            new_start_date = st.date_input(
-                "Challenge Start Date",
-                value=st.session_state.manual_start_date
-            )
-            
-            if st.button("Update Start Date"):
-                st.session_state.manual_start_date = new_start_date
-                st.success(f"Start date set to {new_start_date.strftime('%A, %B %d, %Y')}")
-                st.experimental_rerun()
     
     # Challenge details explanation
     st.markdown("""
@@ -1554,30 +1532,33 @@ else:
     </div>
     """, unsafe_allow_html=True)
     
-    # Add motivational section
+    # Add Q&A Section
     st.markdown("""
     <div class='info-box'>
-        <h3 class='dark-text'>💪 Preparation Tips</h3>
-        <ul>
-            <li class='dark-text'><strong>Set up your tracking device</strong> - Make sure your step counter is working and synced</li>
-            <li class='dark-text'><strong>Plan your walking routes</strong> - Have options for different weather conditions</li>
-            <li class='dark-text'><strong>Find a walking buddy</strong> - Accountability helps with consistency</li>
-            <li class='dark-text'><strong>Set reminders</strong> - Don't forget to get those steps in!</li>
-        </ul>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    # Add health benefits
-    st.markdown("""
-    <div class='info-box'>
-        <h3 class='dark-text'>🌟 Benefits of 10,000 Steps</h3>
-        <ul>
-            <li class='dark-text'><strong>Improved cardiovascular health</strong></li>
-            <li class='dark-text'><strong>Better weight management</strong></li>
-            <li class='dark-text'><strong>Reduced stress and improved mood</strong></li>
-            <li class='dark-text'><strong>Enhanced creativity and mental clarity</strong></li>
-            <li class='dark-text'><strong>Greater energy levels throughout the day</strong></li>
-        </ul>
-        <p class='dark-text'>Get ready to step it up! 🦦</p>
+        <h3 class='dark-text'>❓ Frequently Asked Questions</h3>
+        
+        <p class='dark-text'><strong>Q: How do I join the competition?</strong></p>
+        <p class='dark-text'>A: It's simple! 
+            <ol>
+                <li class='dark-text'>First, get the StepUp app on your phone</li>
+                <li class='dark-text'>Connect it to the health app on your phone</li>
+                <li class='dark-text'>Join the Boggers group using this link: <a href="https://join.thestepupapp.com/w83T" target="_blank">https://join.thestepupapp.com/w83T</a></li>
+            </ol>
+        </p>
+        
+        <p class='dark-text'><strong>Q: What happens if there's a tie in the streak leaderboard?</strong></p>
+        <p class='dark-text'>A: If two or more boggers have the same streak length, the tiebreaker will be determined by total number of steps. The bogger with the highest total steps wins!</p>
+        
+        <p class='dark-text'><strong>Q: What's the prize for winning?</strong></p>
+        <p class='dark-text'>A: Bragging rights! The most valuable prize of all.</p>
+        
+        <p class='dark-text'><strong>Q: When will the leaderboard/website be updated?</strong></p>
+        <p class='dark-text'>A: Once a week until the competition is over. Note that Batsi might forget to do so. So just remind him if he forgets.</p>
+        
+        <p class='dark-text'><strong>Q: When is Arsenal playing Real Madrid in the UCL quarter finals?</strong></p>
+        <p class='dark-text'>A: First leg 8th April 9 pm SAST, Second leg 16th April 9pm SAST</p>
+        
+        <p class='dark-text'><strong>Q: Batsi don't you have a thesis to write?</strong></p>
+        <p class='dark-text'>A: You're goddamn right I do. But I wanted to procrastinate.</p>
     </div>
     """, unsafe_allow_html=True)
