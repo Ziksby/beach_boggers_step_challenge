@@ -1476,14 +1476,8 @@ if st.session_state.data is not None and st.session_state.view_start_date is not
         </div>
         """, unsafe_allow_html=True)
 else:
-    # Display welcome message when no data is available
-    st.markdown("""
-    <div class='stat-box'>
-        <h2 class='dark-text'>Welcome to the 84-Day Boggers Step Challenge! 🦦</h2>
-        
-        <p class='dark-text'>This is your central hub for tracking progress in our step challenge.</p>
-    </div>
-    """, unsafe_allow_html=True)
+    # Display welcome message when no data is available - using single quotes and more compact HTML
+    st.markdown('<div class="stat-box"><h2 class="dark-text">Welcome to the 84-Day Boggers Step Challenge! 🦦</h2><p class="dark-text">This is your central hub for tracking progress in our step challenge.</p></div>', unsafe_allow_html=True)
 
     # Check if we're pre-challenge or if there's just no data file
     if DEFAULT_CSV_PATH is None:
@@ -1498,67 +1492,39 @@ else:
         
         if days_to_start > 0:
             # Challenge hasn't started yet
-            st.markdown(f"""
-            <div class='info-box'>
-                <h3 class='dark-text'>🗓️ Challenge Countdown</h3>
-                <p style='font-size: 1.8rem; text-align: center;' class='dark-text'>{days_to_start} days to go!</p>
-                <p class='dark-text'>The challenge begins on {challenge_start.strftime('%A, %B %d, %Y')}.</p>
-            </div>
-            """, unsafe_allow_html=True)
+            st.markdown(f'<div class="info-box"><h3 class="dark-text">🗓️ Challenge Countdown</h3><p style="font-size: 1.8rem; text-align: center;" class="dark-text">{days_to_start} days to go!</p><p class="dark-text">The challenge begins on {challenge_start.strftime("%A, %B %d, %Y")}.</p></div>', unsafe_allow_html=True)
         else:
             # Challenge has started but no data uploaded yet
-            st.markdown("""
-            <div class='info-box'>
-                <h3 class='dark-text'>🏃‍♀️ Challenge In Progress</h3>
-                <p class='dark-text'>The challenge has started! Data will appear here once it's available.</p>
-                <p class='dark-text'>Keep stepping and check back soon!</p>
-            </div>
-            """, unsafe_allow_html=True)
+            st.markdown('<div class="info-box"><h3 class="dark-text">🏃‍♀️ Challenge In Progress</h3><p class="dark-text">The challenge has started but Batsi hasn\'t updated the website yet.</p><p class="dark-text">Keep stepping and check back soon!</p></div>', unsafe_allow_html=True)
     
     # Challenge details explanation
-    st.markdown("""
-    <div class='info-box'>
-        <h3 class='dark-text'>Challenge Overview:</h3>
-        <ul>
-            <li class='dark-text'><strong>Duration</strong>: 84 days (12 weeks)</li>
-            <li class='dark-text'><strong>Main Goals</strong>:
-                <ul>
-                    <li class='dark-text'>Build a streak of consecutive 10K+ step days</li>
-                    <li class='dark-text'>Accumulate as many 10K+ step days as possible</li>
-                </ul>
-            </li>
-            <li class='dark-text'><strong>Rankings</strong>: Two separate leaderboards - longest streak and most 10K days</li>
-        </ul>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    # Add Q&A Section
-    st.markdown("""
-    <div class='info-box'>
-        <h3 class='dark-text'>❓ Frequently Asked Questions</h3>
-        
-        <p class='dark-text'><strong>Q: How do I join the competition?</strong></p>
-        <p class='dark-text'>A: It's simple! 
-            <ol>
-                <li class='dark-text'>First, get the StepUp app on your phone</li>
-                <li class='dark-text'>Connect it to the health app on your phone</li>
-                <li class='dark-text'>Join the Boggers group using this link: <a href="https://join.thestepupapp.com/w83T" target="_blank">https://join.thestepupapp.com/w83T</a></li>
-            </ol>
-        </p>
-        
-        <p class='dark-text'><strong>Q: What happens if there's a tie in the streak leaderboard?</strong></p>
-        <p class='dark-text'>A: If two or more boggers have the same streak length, the tiebreaker will be determined by total number of steps. The bogger with the highest total steps wins!</p>
-        
-        <p class='dark-text'><strong>Q: What's the prize for winning?</strong></p>
-        <p class='dark-text'>A: Bragging rights! The most valuable prize of all.</p>
-        
-        <p class='dark-text'><strong>Q: When will the leaderboard/website be updated?</strong></p>
-        <p class='dark-text'>A: Once a week until the competition is over. Note that Batsi might forget to do so. So just remind him if he forgets.</p>
-        
-        <p class='dark-text'><strong>Q: When is Arsenal playing Real Madrid in the UCL quarter finals?</strong></p>
-        <p class='dark-text'>A: First leg 8th April 9 pm SAST, Second leg 16th April 9pm SAST</p>
-        
-        <p class='dark-text'><strong>Q: Batsi don't you have a thesis to write?</strong></p>
-        <p class='dark-text'>A: You're goddamn right I do. But I wanted to procrastinate.</p>
-    </div>
-    """, unsafe_allow_html=True)
+    st.markdown('<div class="info-box"><h3 class="dark-text">Challenge Overview:</h3><ul><li class="dark-text"><strong>Duration</strong>: 84 days (12 weeks)</li><li class="dark-text"><strong>Main Goals</strong>:<ul><li class="dark-text">Build a streak of consecutive 10K+ step days</li><li class="dark-text">Accumulate as many 10K+ step days as possible</li></ul></li><li class="dark-text"><strong>Rankings</strong>: Two separate leaderboards - longest streak and most 10K days</li></ul></div>', unsafe_allow_html=True)
+
+# Create a section header
+st.markdown("<h3 class='section-header'>❓ Frequently Asked Questions</h3>", unsafe_allow_html=True)
+
+# Create the FAQ section using the most minimal HTML possible
+st.markdown("""
+<div class="info-box">
+<p><b>Q: How do I join the competition?</b><br>
+A: It's simple:<br>
+1. First, get the StepUp app on your phone<br>
+2. Connect it to the health app on your phone<br>
+3. Join the Boggers group using this link: https://join.thestepupapp.com/w83T</p>
+
+<p><b>Q: What happens if there's a tie in the streak leaderboard?</b><br>
+A: If two or more boggers have the same streak length, the tiebreaker will be determined by total number of steps. The bogger with the highest total steps wins.</p>
+
+<p><b>Q: What's the prize for winning?</b><br>
+A: Bragging rights!</p>
+
+<p><b>Q: When will the leaderboard/website be updated?</b><br>
+A: Once a week until the competition is over. Note that I might forget to do so. So just remind me if I forget.</p>
+
+<p><b>Q: When is Arsenal playing Real Madrid in the UCL quarter finals?</b><br>
+A: First leg 8th April 9 pm SAST, Second leg 16th April 9pm SAST</p>
+
+<p><b>Q: Batsi don't you have a thesis to write?</b><br>
+A: You're goddamn right I do. But I wanted to procrastinate.</p>
+</div>
+""", unsafe_allow_html=True)
