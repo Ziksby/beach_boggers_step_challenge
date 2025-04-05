@@ -1510,7 +1510,10 @@ st.markdown("""
 A: It's simple:<br>
 1. First, get the StepUp app on your phone<br>
 2. Connect it to the health app on your phone<br>
-3. Join the Boggers group using this link: https://join.thestepupapp.com/w83T</p>
+3. Join the Boggers group using this link: 
+<a href="https://join.thestepupapp.com/w83T" target="_blank">https://join.thestepupapp.com/w83T</a>
+</p>
+
 
 <p><b>Q: What happens if there's a tie in the streak/most 10k steps leaderboard?</b><br>
 A: If two or more boggers have the same streak length or the same number of 10k days, the tiebreaker will be determined by total number of steps. The bogger with the highest total steps wins.</p>
