@@ -1513,7 +1513,7 @@ A: It's simple:<br>
 3. Join the Boggers group using this link: https://join.thestepupapp.com/w83T</p>
 
 <p><b>Q: What happens if there's a tie in the streak/most 10k steps leaderboard?</b><br>
-A: If two or more boggers have the same streak length, the tiebreaker will be determined by total number of steps. The bogger with the highest total steps wins.</p>
+A: If two or more boggers have the same streak length or the same number of 10k days, the tiebreaker will be determined by total number of steps. The bogger with the highest total steps wins.</p>
 
 <p><b>Q: What's the prize for winning?</b><br>
 A: Bragging rights!</p>
