@@ -1525,7 +1525,7 @@ A: Bragging rights!</p>
 A: Once a week until the competition is over. Note that I might forget to do so. So just remind me if I forget.</p>
 
 <p><b>Q: When is Arsenal playing Real Madrid in the UCL quarter finals?</b><br>
-A: First leg 8th April 9 pm SAST, Second leg 16th April 9pm SAST</p>
+A: Arsenal won the first leg 3-0, Second leg 16th April 9pm SAST</p>
 
 <p><b>Q: Batsi don't you have a thesis to write?</b><br>
 A: You're goddamn right I do. But I wanted to procrastinate.</p>
