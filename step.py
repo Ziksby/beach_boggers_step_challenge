@@ -46,11 +46,6 @@ st.markdown("""
         margin-bottom: 20px;
         border-left: 5px solid #10B981;
     }
-    .gold-name {
-        font-weight: bold;
-        color: #FFD700;
-        text-shadow: 0px 0px 5px #FFA500;
-    }
     .milestone-header {
         font-size: 1.5rem !important;
         color: #FFFFFF;
@@ -464,16 +459,16 @@ def calculate_metrics(df, date_cols, start_date_str, end_date_str):
     # Filter date columns within the selected range
     filtered_date_cols = [col for col in date_cols if start_date <= datetime.datetime.strptime(col, '%Y-%m-%d').date() <= end_date]
     
-    # Initialize results dataframe
+    # Initialize results dataframe with appropriate data types
     results = pd.DataFrame()
     results['Name'] = df['Name']
     
-    # Calculate 10K step days
+    # Use the correct data types from the start
     results['days_with_10k'] = 0
     results['current_streak'] = 0
     results['longest_streak'] = 0
     results['total_steps'] = 0
-    results['total_distance_km'] = 0
+    results['total_distance_km'] = 0.0  # Initialize as float instead of int
     
     # For milestone tracking
     prev_longest_streaks = {}
@@ -486,7 +481,7 @@ def calculate_metrics(df, date_cols, start_date_str, end_date_str):
         max_streak_start = None
         current_streak_start = None
         total_steps = 0
-        total_distance_km = 0
+        total_distance_km = 0.0
         
         # Get bogger name
         name = row['Name']
@@ -517,7 +512,7 @@ def calculate_metrics(df, date_cols, start_date_str, end_date_str):
                         total_distance_mi = 0
                     total_distance_km = total_distance_mi * 1.60934
                 except (ValueError, TypeError):
-                    total_distance_km = 0
+                    total_distance_km = 0.0
             
             # Check if step count meets or exceeds 10K
             if step_count >= 10000:
@@ -566,23 +561,46 @@ def calculate_metrics(df, date_cols, start_date_str, end_date_str):
         # Update previous longest streak
         prev_longest_streaks[name] = int(longest_streak)
     
-    # Calculate rankings by longest streak
-    results['streak_rank'] = (-results['longest_streak']).rank(method='min').astype(int)
-    
-    # Calculate rankings by most 10K days
-    results['days_rank'] = (-results['days_with_10k']).rank(method='min').astype(int)
+    # Custom ranking for longest streak with total steps as tiebreaker
+    # First sort by longest streak (descending) and then by total steps (descending) for ties
+    results_sorted_by_streak = results.sort_values(['longest_streak', 'total_steps'], ascending=[False, False])
+    results_sorted_by_streak['streak_rank'] = range(1, len(results_sorted_by_streak) + 1)
+
+    # Custom ranking for most 10K days with total steps as tiebreaker
+    # First sort by days with 10k (descending) and then by total steps (descending) for ties
+    results_sorted_by_days = results.sort_values(['days_with_10k', 'total_steps'], ascending=[False, False])
+    results_sorted_by_days['days_rank'] = range(1, len(results_sorted_by_days) + 1)
+
+    # Update the ranks in the original results DataFrame
+    for idx, row in results.iterrows():
+        name = row['Name']
+        results.loc[idx, 'streak_rank'] = results_sorted_by_streak[results_sorted_by_streak['Name'] == name]['streak_rank'].values[0]
+        results.loc[idx, 'days_rank'] = results_sorted_by_days[results_sorted_by_days['Name'] == name]['days_rank'].values[0]
     
     # Check for perfect streak potential
     if st.session_state.challenge_start_date:
         challenge_start = st.session_state.challenge_start_date
         today = date.today()
-        days_since_start = (today - challenge_start).days + 1
         
-        # Only apply gold highlight if we're within the challenge period
-        if today >= challenge_start and days_since_start > 0:
-            results['perfect_streak_potential'] = results['current_streak'] >= days_since_start
+        # Calculate days in the current view period
+        view_start_date = datetime.datetime.strptime(start_date_str, '%Y-%m-%d').date()
+        view_end_date = datetime.datetime.strptime(end_date_str, '%Y-%m-%d').date()
+        
+        # For debugging - uncomment these if you need to see what's happening
+        # st.write(f"Debug: view_start={view_start_date}, challenge_start={challenge_start}")
+        # st.write(f"Debug: days_with_10k values: {results['days_with_10k'].tolist()}")
+        
+        # Special case for first day of challenge
+        if view_start_date == challenge_start and view_end_date == challenge_start:
+            # If we're only viewing the first day of the challenge, everyone who hit 10K gets a crown
+            results['perfect_streak_potential'] = results['days_with_10k'] >= 1
         else:
-            results['perfect_streak_potential'] = False
+            # Regular logic for multi-day periods
+            days_in_view = (view_end_date - view_start_date).days + 1
+            days_since_start = (today - challenge_start).days + 1
+            
+            # Check if they have a perfect streak for the days we're viewing
+            results['perfect_streak_potential'] = results['days_with_10k'] >= days_in_view
     else:
         results['perfect_streak_potential'] = False
     
@@ -965,7 +983,7 @@ def generate_community_stats(df, date_cols, end_date):
     total_steps = 0
     
     # Calculate total distance using the Total Distance column if available
-    total_distance_km = 0
+    total_distance_km = 0.0
     
     if 'Total Distance (mi)' in df.columns:
         for _, row in df.iterrows():
@@ -1188,15 +1206,15 @@ if st.session_state.data is not None and st.session_state.view_start_date is not
         streak_leaderboard = metrics_df[['streak_rank', 'Name', 'longest_streak', 'perfect_streak_potential']].copy()
         streak_leaderboard = streak_leaderboard.sort_values('streak_rank')
         
-        # Highlight names with gold for those with perfect streak potential
-        def highlight_gold(name, has_potential):
+        # Add crown emoji next to names with perfect streaks
+        def add_crown(name, has_potential):
             if has_potential:
-                return f"<span class='gold-name'>{name}</span>"
+                return f"👑 {name}"
             return name
         
-        # Apply gold highlighting
+        # Apply crown highlighting
         streak_leaderboard['Name'] = streak_leaderboard.apply(
-            lambda row: highlight_gold(row['Name'], row['perfect_streak_potential']), 
+            lambda row: add_crown(row['Name'], row['perfect_streak_potential']), 
             axis=1
         )
         
@@ -1218,9 +1236,9 @@ if st.session_state.data is not None and st.session_state.view_start_date is not
         days_leaderboard = metrics_df[['days_rank', 'Name', 'days_with_10k', 'perfect_streak_potential']].copy()
         days_leaderboard = days_leaderboard.sort_values('days_rank')
         
-        # Apply gold highlighting
+        # Apply crown highlighting
         days_leaderboard['Name'] = days_leaderboard.apply(
-            lambda row: highlight_gold(row['Name'], row['perfect_streak_potential']), 
+            lambda row: add_crown(row['Name'], row['perfect_streak_potential']), 
             axis=1
         )
         
@@ -1236,10 +1254,10 @@ if st.session_state.data is not None and st.session_state.view_start_date is not
         # Display the 10K days leaderboard
         st.dataframe(days_leaderboard, hide_index=True)
         
-        # Add note about gold names
+        # Add note about crown icons
         st.markdown("""
         <div class='info-box'>
-            <p class='dark-text'>👑 Names in gold indicate boggers who have maintained a perfect streak since the challenge started!</p>
+            <p class='dark-text'>👑 Crown indicates boggers who have maintained a perfect streak since the challenge started!</p>
         </div>
         """, unsafe_allow_html=True)
     
