@@ -29,7 +29,6 @@ st.set_page_config(
     page_title="84-Day Step Challenge",
     page_icon="🦦",
     # Remove layout="wide" to allow responsive behavior
-    initial_sidebar_state="collapsed"  # Start with sidebar collapsed for mobile
 )
 
 # Custom CSS for styling - Updated with media queries for mobile responsiveness
@@ -118,7 +117,7 @@ st.markdown("""
         padding: 10px;
         border-radius: 5px;
         margin-top: 15px;
-        margin-bottom: 15px;
+        margin-bottom: 35px; /* Increased bottom margin to prevent overlap */
         font-weight: bold;
         border-left: 5px solid #10B981;
     }
@@ -143,6 +142,15 @@ st.markdown("""
         color: #FFFFFF !important;
     }
     
+    /* Filter box for view controls */
+    .filter-box {
+        background-color: #1F2937;
+        border-radius: 10px;
+        padding: 15px;
+        margin: 15px 0;
+        border-left: 5px solid #10B981;
+    }
+    
     /* Base style overrides */
     div[data-testid="stMetricValue"] > div {
         color: #FFFFFF !important;
@@ -156,6 +164,9 @@ st.markdown("""
     div.element-container div.stTabs div.stTabsTabsList {
         background-color: #1F2937;
         border-radius: 8px;
+        position: sticky;
+        top: 0;
+        z-index: 1000;
     }
     button[role="tab"][tabindex="0"], button[role="tab"][tabindex="-1"] {
         color: #FFFFFF !important;
@@ -183,6 +194,7 @@ st.markdown("""
         font-weight: bold;
         border-left: 5px solid #10B981;
         white-space: nowrap; /* Prevents header text wrapping */
+        text-align: center !important; /* Center align column headers */
     }
     div.stDataFrame div[data-testid="stTable"] td {
         color: #FFFFFF;
@@ -227,12 +239,18 @@ st.markdown("""
         background-color: #1F2937 !important;
         color: #FFFFFF !important;
         border-left: 3px solid #10B981;
+        text-align: center !important; /* Center align the table headers */
     }
     tbody tr {
         background-color: #374151 !important;
     }
     tbody td {
         color: #FFFFFF !important;
+    }
+    
+    /* Center text in custom tables */
+    .custom-table th {
+        text-align: center !important;
     }
     
     /* Fix select boxes */
@@ -269,6 +287,18 @@ st.markdown("""
     .section-spacing {
         margin-top: 20px;
         margin-bottom: 10px;
+    }
+    
+    /* Milestone badge styles */
+    .milestone-badge {
+        display: inline-block;
+        background-color: #10B981;
+        color: #FFFFFF;
+        border-radius: 15px;
+        padding: 3px 8px;
+        margin-left: 5px;
+        font-size: 0.8rem;
+        font-weight: bold;
     }
     
     /* Mobile-specific adjustments - media queries */
@@ -324,19 +354,6 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# Function to detect if we're on a mobile device (based on window width)
-# This will be used to adjust layouts dynamically
-st.markdown("""
-<script>
-const isMobile = () => {
-    return window.innerWidth <= 768;
-};
-
-// Store device type in sessionStorage
-sessionStorage.setItem('isMobile', isMobile());
-</script>
-""", unsafe_allow_html=True)
-
 # Initialize session state
 if 'data' not in st.session_state:
     st.session_state.data = None
@@ -346,6 +363,8 @@ if 'selected_bogger' not in st.session_state:
     st.session_state.selected_bogger = None
 if 'milestones' not in st.session_state:
     st.session_state.milestones = {}
+if 'perfect_boggers' not in st.session_state:
+    st.session_state.perfect_boggers = []
 if 'show_milestone' not in st.session_state:
     st.session_state.show_milestone = False
 if 'milestone_message' not in st.session_state:
@@ -364,8 +383,8 @@ if 'view_end_date' not in st.session_state:
     st.session_state.view_end_date = None
 if 'available_weeks' not in st.session_state:
     st.session_state.available_weeks = []
-if 'is_mobile' not in st.session_state:
-    st.session_state.is_mobile = False  # Will be updated based on screen size
+if 'current_tab' not in st.session_state:
+    st.session_state.current_tab = 0
 
 # Define celestial body distances (in km)
 EARTH_CIRCUMFERENCE = 40075  # km
@@ -379,7 +398,15 @@ DISTANCE_TO_URANUS = 2723950000  # km
 DISTANCE_TO_NEPTUNE = 4351400000  # km
 DISTANCE_TO_BLACKHOLE = 25640000000000  # km (Sagittarius A*)
 
-# All the existing functions remain unchanged
+# Constants for new milestone logic
+MILESTONE_WEEKS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]  # 1 to 12 weeks
+MILESTONE_DAYS = [week * 7 for week in MILESTONE_WEEKS]  # Convert weeks to days: 7, 14, 21, 28, 35, 42, 49, 56, 63, 70, 77, 84
+
+# Function to convert days to weeks for display
+def days_to_weeks(days):
+    weeks = days // 7
+    return f"{weeks} week{'s' if weeks != 1 else ''}"
+
 # Function to get date columns from dataframe
 def get_date_columns(df):
     date_cols = []
@@ -450,7 +477,36 @@ def preprocess_data(df):
     
     return df_clean
 
-# Function to calculate streaks and metrics
+# UPDATED: Function to check if a bogger has a perfect streak from the start of the challenge
+def has_perfect_streak(df, name, challenge_start_date, current_date):
+    # Get all date columns from challenge start to current date
+    date_cols = get_date_columns(df)
+    challenge_dates = []
+    
+    # Filter dates within the challenge period
+    for col in date_cols:
+        col_date = datetime.datetime.strptime(col, '%Y-%m-%d').date()
+        if challenge_start_date <= col_date <= current_date:
+            challenge_dates.append(col)
+    
+    # Get the bogger's data
+    bogger_data = df[df['Name'] == name].iloc[0]
+    
+    # Check if all days have at least 10K steps
+    for date_col in challenge_dates:
+        step_count = bogger_data[date_col]
+        # Handle NaN values
+        if pd.isna(step_count):
+            step_count = 0
+            
+        # If any day has less than 10K steps, they don't have a perfect streak
+        if step_count < 10000:
+            return False
+    
+    # If we've checked all days and all had 10K+ steps, they have a perfect streak
+    return True
+
+# Function to calculate streaks and metrics - UPDATED to use weekly milestones
 def calculate_metrics(df, date_cols, start_date_str, end_date_str):
     # Convert date strings to datetime
     start_date = datetime.datetime.strptime(start_date_str, '%Y-%m-%d').date()
@@ -469,6 +525,7 @@ def calculate_metrics(df, date_cols, start_date_str, end_date_str):
     results['longest_streak'] = 0
     results['total_steps'] = 0
     results['total_distance_km'] = 0.0  # Initialize as float instead of int
+    results['highest_milestone'] = 0  # Track highest milestone for each bogger
     
     # For milestone tracking
     prev_longest_streaks = {}
@@ -539,10 +596,10 @@ def calculate_metrics(df, date_cols, start_date_str, end_date_str):
         results.loc[idx, 'total_steps'] = int(total_steps)
         results.loc[idx, 'total_distance_km'] = total_distance_km
         
-        # Check for new streak milestones
+        # Check for new streak milestones - UPDATED to use weekly milestones
         if int(longest_streak) > int(prev_longest_streak):
-            # Check for milestone crossings (10, 20, 30, etc.)
-            for milestone in [10, 20, 30, 40, 50, 60, 70, 80]:
+            # Check for milestone crossings
+            for milestone in MILESTONE_DAYS:
                 if int(prev_longest_streak) < milestone <= int(longest_streak):
                     # Record new milestone
                     if name not in st.session_state.milestones:
@@ -552,11 +609,18 @@ def calculate_metrics(df, date_cols, start_date_str, end_date_str):
                     if milestone not in st.session_state.milestones[name]:
                         st.session_state.milestones[name].append(milestone)
                         
-                        # Set milestone notification
+                        # Set milestone notification - Convert days to weeks for display
+                        weeks = milestone // 7
                         st.session_state.show_milestone = True
-                        st.session_state.milestone_message = f"🎉 Amazing achievement! {name} has reached a {milestone}-day streak!"
+                        st.session_state.milestone_message = f"🎉 Amazing achievement! {name} has reached a {weeks}-week streak!"
                         st.session_state.milestone_bogger = name
                         st.session_state.milestone_days = milestone
+        
+        # Set highest milestone for this bogger (for leaderboard display)
+        if name in st.session_state.milestones and st.session_state.milestones[name]:
+            results.loc[idx, 'highest_milestone'] = max(st.session_state.milestones[name])
+        else:
+            results.loc[idx, 'highest_milestone'] = 0
         
         # Update previous longest streak
         prev_longest_streaks[name] = int(longest_streak)
@@ -577,32 +641,20 @@ def calculate_metrics(df, date_cols, start_date_str, end_date_str):
         results.loc[idx, 'streak_rank'] = results_sorted_by_streak[results_sorted_by_streak['Name'] == name]['streak_rank'].values[0]
         results.loc[idx, 'days_rank'] = results_sorted_by_days[results_sorted_by_days['Name'] == name]['days_rank'].values[0]
     
-    # Check for perfect streak potential
+    # Check for perfect streak - UPDATED to only consider perfect from challenge start
+    results['perfect_streak_potential'] = False
+    
     if st.session_state.challenge_start_date:
-        challenge_start = st.session_state.challenge_start_date
         today = date.today()
+        st.session_state.perfect_boggers = []
         
-        # Calculate days in the current view period
-        view_start_date = datetime.datetime.strptime(start_date_str, '%Y-%m-%d').date()
-        view_end_date = datetime.datetime.strptime(end_date_str, '%Y-%m-%d').date()
-        
-        # For debugging - uncomment these if you need to see what's happening
-        # st.write(f"Debug: view_start={view_start_date}, challenge_start={challenge_start}")
-        # st.write(f"Debug: days_with_10k values: {results['days_with_10k'].tolist()}")
-        
-        # Special case for first day of challenge
-        if view_start_date == challenge_start and view_end_date == challenge_start:
-            # If we're only viewing the first day of the challenge, everyone who hit 10K gets a crown
-            results['perfect_streak_potential'] = results['days_with_10k'] >= 1
-        else:
-            # Regular logic for multi-day periods
-            days_in_view = (view_end_date - view_start_date).days + 1
-            days_since_start = (today - challenge_start).days + 1
-            
-            # Check if they have a perfect streak for the days we're viewing
-            results['perfect_streak_potential'] = results['days_with_10k'] >= days_in_view
-    else:
-        results['perfect_streak_potential'] = False
+        for _, row in results.iterrows():
+            name = row['Name']
+            # Check if bogger has a perfect streak from challenge start until today
+            if has_perfect_streak(df, name, st.session_state.challenge_start_date, today):
+                results.loc[results['Name'] == name, 'perfect_streak_potential'] = True
+                if name not in st.session_state.perfect_boggers:
+                    st.session_state.perfect_boggers.append(name)
     
     return results
 
@@ -808,8 +860,8 @@ def find_best_week_streak(df, date_cols, bogger_name):
     
     return None
 
-# Function to calculate weekly MVPs
-def calculate_weekly_mvps(df, date_cols):
+# Function to calculate weekly MVPs and leaderboards
+def calculate_weekly_stats(df, date_cols):
     # Group date columns by week
     weeks = []
     current_week = []
@@ -821,8 +873,8 @@ def calculate_weekly_mvps(df, date_cols):
             weeks.append(current_week)
             current_week = []
     
-    # Calculate MVPs for each week
-    weekly_mvps = []
+    # Calculate stats for each week
+    weekly_stats = []
     
     for i, week_cols in enumerate(weeks):
         week_start = datetime.datetime.strptime(week_cols[0], '%Y-%m-%d').date()
@@ -830,7 +882,7 @@ def calculate_weekly_mvps(df, date_cols):
         
         # Check if this week is in the future
         if week_end > date.today():
-            weekly_mvps.append({
+            weekly_stats.append({
                 'week_num': i + 1,
                 'start_date': week_start.strftime('%Y-%m-%d'),
                 'end_date': week_end.strftime('%Y-%m-%d'),
@@ -844,6 +896,8 @@ def calculate_weekly_mvps(df, date_cols):
         week_metrics['days_with_10k'] = 0
         week_metrics['longest_streak'] = 0
         week_metrics['total_steps'] = 0
+        week_metrics['highest_milestone'] = 0  # Add milestone tracking
+        week_metrics['perfect_streak_potential'] = False  # Add perfect streak tracking
         
         # Calculate metrics for this week
         for idx, row in df.iterrows():
@@ -851,6 +905,10 @@ def calculate_weekly_mvps(df, date_cols):
             current_streak = 0
             longest_streak = 0
             total_steps = 0
+            name = row['Name']
+            
+            # Check if this bogger has a perfect streak for just this week
+            has_perfect_streak_this_week = True
             
             for day in week_cols:
                 step_count = row[day]
@@ -866,11 +924,32 @@ def calculate_weekly_mvps(df, date_cols):
                     longest_streak = max(longest_streak, current_streak)
                 else:
                     current_streak = 0
+                    has_perfect_streak_this_week = False  # If any day is < 10K, not perfect
             
             # Store the metrics
             week_metrics.loc[idx, 'days_with_10k'] = days_with_10k
             week_metrics.loc[idx, 'longest_streak'] = longest_streak
             week_metrics.loc[idx, 'total_steps'] = total_steps
+            week_metrics.loc[idx, 'perfect_streak_potential'] = has_perfect_streak_this_week
+            
+            # Apply any global milestones this bogger has achieved
+            if name in st.session_state.milestones and st.session_state.milestones[name]:
+                week_metrics.loc[idx, 'highest_milestone'] = max(st.session_state.milestones[name])
+            else:
+                week_metrics.loc[idx, 'highest_milestone'] = 0
+        
+        # Calculate rankings
+        streak_rankings = week_metrics.sort_values(['longest_streak', 'total_steps'], ascending=[False, False])
+        streak_rankings['streak_rank'] = range(1, len(streak_rankings) + 1)
+        
+        days_rankings = week_metrics.sort_values(['days_with_10k', 'total_steps'], ascending=[False, False])
+        days_rankings['days_rank'] = range(1, len(days_rankings) + 1)
+        
+        # Update ranks in week_metrics
+        for idx, row in week_metrics.iterrows():
+            name = row['Name']
+            week_metrics.loc[idx, 'streak_rank'] = streak_rankings[streak_rankings['Name'] == name]['streak_rank'].values[0]
+            week_metrics.loc[idx, 'days_rank'] = days_rankings[days_rankings['Name'] == name]['days_rank'].values[0]
         
         # Find streak MVP(s) with proper tiebreaker based on total steps
         max_streak = week_metrics['longest_streak'].max()
@@ -936,17 +1015,18 @@ def calculate_weekly_mvps(df, date_cols):
                 'is_tie': False
             }
         
-        # Add to weekly MVPs list
-        weekly_mvps.append({
+        # Add to weekly stats list
+        weekly_stats.append({
             'week_num': i + 1,
             'start_date': week_start.strftime('%Y-%m-%d'),
             'end_date': week_end.strftime('%Y-%m-%d'),
             'streak_mvp': streak_mvp,
             'days_mvp': days_mvp,
+            'leaderboards': week_metrics,
             'future_week': False
         })
     
-    return weekly_mvps
+    return weekly_stats
 
 # Function to format distance milestones
 def format_distance_milestone(total_distance_km):
@@ -1044,6 +1124,111 @@ def generate_community_stats(df, date_cols, end_date):
         'total_boggers': len(df)
     }
 
+# Helper function to get the milestone badge HTML - UPDATED to use weeks
+def get_milestone_badge(milestone_days):
+    if milestone_days <= 0:
+        return ""
+    weeks = milestone_days // 7
+    return f'<span class="milestone-badge">🏆 {weeks} week{"s" if weeks != 1 else ""}</span>'
+
+# Helper function to count milestone achievements - UPDATED for weekly milestones
+def get_milestone_counts():
+    if not st.session_state.milestones:
+        return {}
+    
+    # Count how many people have reached each milestone
+    milestone_counts = {days: 0 for days in MILESTONE_DAYS}
+    
+    for name, milestones in st.session_state.milestones.items():
+        for milestone in milestones:
+            if milestone in milestone_counts:
+                milestone_counts[milestone] += 1
+    
+    # Convert days to weeks for display
+    return {days_to_weeks(days): count for days, count in milestone_counts.items() if count > 0}
+
+# Function to display milestone hall of fame content
+def display_milestone_hall_of_fame():
+    if st.session_state.milestones:
+        # Get a count of all milestone achievements
+        milestone_counts = get_milestone_counts()
+        
+        # Display milestone summary with weeks instead of days
+        milestone_summary = ", ".join([f"{count} boggers reached {milestone}" 
+                                     for milestone, count in milestone_counts.items()])
+        
+        # Calculate who can still get the perfect 84-day milestone
+        today = date.today()
+        if st.session_state.challenge_start_date and st.session_state.challenge_end_date:
+            days_elapsed = (today - st.session_state.challenge_start_date).days + 1
+            days_total = (st.session_state.challenge_end_date - st.session_state.challenge_start_date).days + 1
+            
+            perfect_streak_possible = len(st.session_state.perfect_boggers)
+            
+            if days_elapsed < days_total:
+                st.markdown(f"""
+                <div class='info-box'>
+                    <p class='dark-text'><strong>Milestone Summary:</strong> {milestone_summary}</p>
+                    <p class='dark-text'><strong>Perfect Streak Potential:</strong> {perfect_streak_possible} boggers still have a chance to achieve the perfect 12-week streak!</p>
+                </div>
+                """, unsafe_allow_html=True)
+            else:
+                # Challenge is over
+                st.markdown(f"""
+                <div class='info-box'>
+                    <p class='dark-text'><strong>Milestone Summary:</strong> {milestone_summary}</p>
+                    <p class='dark-text'><strong>Challenge Complete!</strong> {perfect_streak_possible} boggers achieved the perfect 12-week streak!</p>
+                </div>
+                """, unsafe_allow_html=True)
+        
+        # Create a grid layout for milestones
+        milestone_cols = st.columns(min(3, len(st.session_state.milestones)))
+        
+        for i, (name, milestones) in enumerate(st.session_state.milestones.items()):
+            col_index = i % len(milestone_cols)
+            with milestone_cols[col_index]:
+                # Convert days to weeks for display
+                weeks_display = [f"{days//7} week{'s' if days//7 != 1 else ''}" for days in sorted(milestones)]
+                
+                st.markdown(f"""
+                <div class='stat-box'>
+                    <p class='dark-text' style='font-size: 1.2rem;'><strong>{name}</strong></p>
+                    <p class='dark-text'>{', '.join(weeks_display)}</p>
+                </div>
+                """, unsafe_allow_html=True)
+    else:
+        st.markdown("""
+        <div class='info-box'>
+            <p class='dark-text'>No streak milestones achieved yet! Keep stepping! 🦦</p>
+            <p class='dark-text'>Milestones are awarded at 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, and 12 weeks.</p>
+        </div>
+        """, unsafe_allow_html=True)
+
+# Function to display filter controls
+def display_filter_controls():
+    st.markdown("<h3 class='section-header'>View Filters</h3>", unsafe_allow_html=True)
+    
+    # Create a filter box
+    with st.container():
+        st.markdown('<div class="filter-box">', unsafe_allow_html=True)
+        
+        # Challenge info
+        if st.session_state.challenge_start_date:
+            # Calculate days left in the challenge
+            today = date.today()
+            days_left = (st.session_state.challenge_end_date - today).days
+            days_left = max(0, days_left)  # Ensure it doesn't go negative
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                st.markdown(f"<p class='dark-text'><strong>Start:</strong> {st.session_state.challenge_start_date.strftime('%Y-%m-%d')}</p>", unsafe_allow_html=True)
+                st.markdown(f"<p class='dark-text'><strong>Days Left:</strong> {days_left}</p>", unsafe_allow_html=True)
+            with col2:
+                st.markdown(f"<p class='dark-text'><strong>End:</strong> {st.session_state.challenge_end_date.strftime('%Y-%m-%d')}</p>", unsafe_allow_html=True)
+                st.markdown(f"<p class='dark-text'><strong>Total Days:</strong> 84 (12 weeks)</p>", unsafe_allow_html=True)
+        
+        st.markdown('</div>', unsafe_allow_html=True)
+
 # Try to load the default CSV file automatically on startup
 def load_initial_data():
     try:
@@ -1091,9 +1276,16 @@ st.markdown("<h1 class='main-header'>🦦 84-Day Boggers Step Challenge 🦦</h1
 
 # Show milestone notification if active
 if st.session_state.show_milestone:
+    # Convert days to weeks for display
+    milestone_weeks = st.session_state.milestone_days // 7
+    milestone_message = st.session_state.milestone_message.replace(
+        f"{st.session_state.milestone_days}-day", 
+        f"{milestone_weeks}-week"
+    )
+    
     st.markdown(f"""
     <div class='milestone-notification'>
-        <h3>{st.session_state.milestone_message}</h3>
+        <h3>{milestone_message}</h3>
         <p class='dark-text'>Keep up the amazing work! 👟</p>
     </div>
     """, unsafe_allow_html=True)
@@ -1101,73 +1293,7 @@ if st.session_state.show_milestone:
     # Add button to dismiss
     if st.button("Dismiss Notification"):
         st.session_state.show_milestone = False
-        st.experimental_rerun()
-
-# Sidebar with filtering options (no file upload)
-with st.sidebar:
-    st.markdown("<h3 class='section-header'>🦦 Challenge Info 🦦</h3>", unsafe_allow_html=True)
-    
-    if st.session_state.challenge_start_date:
-        # Calculate days left in the challenge
-        today = date.today()
-        days_left = (st.session_state.challenge_end_date - today).days
-        days_left = max(0, days_left)  # Ensure it doesn't go negative
-        
-        st.markdown(f"""
-        <div class='stat-box'>
-            <p class='dark-text'><strong>Start Date:</strong> {st.session_state.challenge_start_date.strftime('%Y-%m-%d')}</p>
-            <p class='dark-text'><strong>End Date:</strong> {st.session_state.challenge_end_date.strftime('%Y-%m-%d')}</p>
-            <p class='dark-text'><strong>Total Days:</strong> 84</p>
-            <p class='dark-text'><strong>Days Left:</strong> {days_left}</p>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        st.markdown("---")
-        st.markdown("<h3 class='section-header'>View Filters</h3>", unsafe_allow_html=True)
-        
-        # Weekly filter option
-        # Only show weeks that have data
-        available_weeks = st.session_state.available_weeks
-        
-        # Create week options
-        week_options = ["Full Challenge"]
-        if available_weeks:
-            week_options += [f"Week {i}" for i in available_weeks]
-        
-        selected_week = st.selectbox("Select Week", week_options)
-        
-        # Apply week filter if selected
-        if selected_week != "Full Challenge":
-            week_num = int(selected_week.split(" ")[1])
-            week_start = st.session_state.challenge_start_date + timedelta(days=(week_num-1)*7)
-            week_end = min(week_start + timedelta(days=6), st.session_state.challenge_end_date)
-            
-            # Update date selection
-            st.session_state.view_start_date = week_start
-            st.session_state.view_end_date = min(week_end, date.today())  # Don't show future dates beyond today
-            
-            # Add a note if this week is in the future
-            if week_start > date.today():
-                st.warning(f"Week {week_num} hasn't started yet. Data will be shown when available.")
-        else:
-            # Reset to full available range if "Full Challenge" is selected
-            st.session_state.view_start_date = st.session_state.challenge_start_date
-            st.session_state.view_end_date = min(st.session_state.challenge_end_date, date.today())
-    
-    # Display milestone hall of fame
-    st.markdown("---")
-    st.markdown("<h3 class='section-header'>🏆 Milestone Hall of Fame</h3>", unsafe_allow_html=True)
-    
-    if st.session_state.milestones:
-        for name, milestones in st.session_state.milestones.items():
-            st.markdown(f"""
-            <div class='stat-box'>
-                <p class='dark-text'><strong>{name}</strong></p>
-                <p class='dark-text'>{', '.join([f"{m} days" for m in sorted(milestones)])}</p>
-            </div>
-            """, unsafe_allow_html=True)
-    else:
-        st.info("No milestones achieved yet! Keep stepping! 🦦")
+        st.rerun()
 
 # Main content - Mobile optimized
 if st.session_state.data is not None and st.session_state.view_start_date is not None:
@@ -1188,10 +1314,23 @@ if st.session_state.data is not None and st.session_state.view_start_date is not
     # Calculate metrics
     metrics_df = calculate_metrics(df, date_cols, available_start_date_str, available_end_date_str)
     
-    # Create tabs for different views
-    tab1, tab2, tab3, tab4 = st.tabs(["📊 Leaderboards", "🔍 Details", "📅 MVPs", "📈 Stats"])
+    # Calculate weekly stats for MVPs and weekly leaderboards
+    weekly_stats = calculate_weekly_stats(df, date_cols)
+
+    # Create tabs
+    tab_names = ["📊 Leaderboards", "🏆 Milestones", "🔍 Details", "🗓️ Weekly Leaderboards", "📅 MVPs", "📈 Stats"]
+    tabs = st.tabs(tab_names)
     
-    with tab1:
+    # Track currently selected tab
+    with tabs[0]:  # Leaderboards tab
+        # Show Ultimate Challenge Goal Banner only on the leaderboards tab
+        st.markdown("""
+        <div class='milestone-notification'>
+            <h3>🏆 Ultimate Challenge Goal: 12-Week Streak! 🏆</h3>
+            <p class='dark-text'>Can you maintain a perfect streak for the entire challenge?</p>
+        </div>
+        """, unsafe_allow_html=True)
+        
         st.markdown("<h2 class='section-header'>Step Challenge Leaderboards</h2>", unsafe_allow_html=True)
         st.markdown(f"""
         <div class='info-box'>
@@ -1203,20 +1342,28 @@ if st.session_state.data is not None and st.session_state.view_start_date is not
         st.markdown("<h3 class='section-header'>Longest Streak Leaderboard</h3>", unsafe_allow_html=True)
         
         # Create the streak leaderboard
-        streak_leaderboard = metrics_df[['streak_rank', 'Name', 'longest_streak', 'perfect_streak_potential']].copy()
+        streak_leaderboard = metrics_df[['streak_rank', 'Name', 'longest_streak', 'perfect_streak_potential', 'highest_milestone']].copy()
         streak_leaderboard = streak_leaderboard.sort_values('streak_rank')
         
-        # Add crown emoji next to names with perfect streaks
-        def add_crown(name, has_potential):
-            if has_potential:
-                return f"👑 {name}"
-            return name
+        # Add crown emoji next to names with perfect streaks and milestone badges
+        def add_crown_and_milestone(row):
+            name = row['Name']
+            has_potential = row['perfect_streak_potential']
+            milestone = row['highest_milestone']
+            
+            display_name = name
+            if has_potential and name in st.session_state.perfect_boggers:
+                display_name = f"👑 {display_name}"
+                
+            milestone_badge = get_milestone_badge(milestone)
+            if milestone_badge:
+                # Use HTML to display the milestone badge
+                display_name = f"{display_name} {milestone_badge}"
+                
+            return display_name
         
-        # Apply crown highlighting
-        streak_leaderboard['Name'] = streak_leaderboard.apply(
-            lambda row: add_crown(row['Name'], row['perfect_streak_potential']), 
-            axis=1
-        )
+        # Apply crown highlighting and milestone badges
+        streak_leaderboard['Name'] = streak_leaderboard.apply(add_crown_and_milestone, axis=1)
         
         # Format the leaderboard
         streak_leaderboard = streak_leaderboard.rename(columns={
@@ -1224,23 +1371,20 @@ if st.session_state.data is not None and st.session_state.view_start_date is not
             'longest_streak': 'Longest Streak'
         })
         
-        # Drop the perfect_streak_potential column as it's just for styling
-        streak_leaderboard = streak_leaderboard.drop('perfect_streak_potential', axis=1)
+        # Drop unnecessary columns
+        streak_leaderboard = streak_leaderboard.drop(['perfect_streak_potential', 'highest_milestone'], axis=1)
         
         # Display the streak leaderboard
-        st.dataframe(streak_leaderboard, hide_index=True)
+        st.markdown(streak_leaderboard.to_html(escape=False, index=False, classes='custom-table'), unsafe_allow_html=True)
         
         st.markdown("<h3 class='section-header'>Most 10K Days Leaderboard</h3>", unsafe_allow_html=True)
         
         # Create the 10K days leaderboard
-        days_leaderboard = metrics_df[['days_rank', 'Name', 'days_with_10k', 'perfect_streak_potential']].copy()
+        days_leaderboard = metrics_df[['days_rank', 'Name', 'days_with_10k', 'perfect_streak_potential', 'highest_milestone']].copy()
         days_leaderboard = days_leaderboard.sort_values('days_rank')
         
-        # Apply crown highlighting
-        days_leaderboard['Name'] = days_leaderboard.apply(
-            lambda row: add_crown(row['Name'], row['perfect_streak_potential']), 
-            axis=1
-        )
+        # Apply crown highlighting and milestone badges
+        days_leaderboard['Name'] = days_leaderboard.apply(add_crown_and_milestone, axis=1)
         
         # Format the leaderboard
         days_leaderboard = days_leaderboard.rename(columns={
@@ -1248,28 +1392,38 @@ if st.session_state.data is not None and st.session_state.view_start_date is not
             'days_with_10k': '10K Days'
         })
         
-        # Drop the perfect_streak_potential column as it's just for styling
-        days_leaderboard = days_leaderboard.drop('perfect_streak_potential', axis=1)
+        # Drop unnecessary columns
+        days_leaderboard = days_leaderboard.drop(['perfect_streak_potential', 'highest_milestone'], axis=1)
         
         # Display the 10K days leaderboard
-        st.dataframe(days_leaderboard, hide_index=True)
+        st.markdown(days_leaderboard.to_html(escape=False, index=False, classes='custom-table'), unsafe_allow_html=True)
         
-        # Add note about crown icons
+        # Add note about crown icons and milestone badges
         st.markdown("""
         <div class='info-box'>
-            <p class='dark-text'>👑 Crown indicates boggers who have maintained a perfect streak since the challenge started!</p>
+            <p class='dark-text'>👑 Crown indicates boggers who have maintained a perfect streak from the start of the challenge</p>
+            <p class='dark-text'>🏆 Milestone badges show the highest streak milestone achieved (in weeks)</p>
         </div>
         """, unsafe_allow_html=True)
     
-    with tab2:
+    with tabs[1]:  # Milestones tab
+        # Milestone Hall of Fame has its own tab now
+        st.markdown("<h2 class='section-header'>🏆 Milestone Hall of Fame</h2>", unsafe_allow_html=True)
+        display_milestone_hall_of_fame()
+    
+    with tabs[2]:  # Details tab
         st.markdown("<h2 class='section-header'>Bogger Details</h2>", unsafe_allow_html=True)
         
-        # Dropdown to select bogger
+        # Improved bogger selection dropdown
+        current_bogger = st.session_state.selected_bogger
+        if current_bogger is None and len(st.session_state.boggers_names) > 0:
+            current_bogger = st.session_state.boggers_names[0]
+        
         selected_bogger = st.selectbox(
-            "Select a bogger",
-            st.session_state.boggers_names,
-            index=0 if st.session_state.selected_bogger is None else 
-                   st.session_state.boggers_names.index(st.session_state.selected_bogger)
+            "Select Bogger", 
+            options=sorted(st.session_state.boggers_names),
+            index=sorted(st.session_state.boggers_names).index(current_bogger) if current_bogger in st.session_state.boggers_names else 0,
+            key="bogger_selector"
         )
         
         # Store selection in session state
@@ -1279,6 +1433,15 @@ if st.session_state.data is not None and st.session_state.view_start_date is not
             # Get bogger data
             bogger_data = df[df['Name'] == selected_bogger].iloc[0]
             bogger_metrics = metrics_df[metrics_df['Name'] == selected_bogger].iloc[0]
+            
+            # Show milestone if any - UPDATED to show weeks instead of days
+            if bogger_metrics['highest_milestone'] > 0:
+                milestone_weeks = bogger_metrics['highest_milestone'] // 7
+                st.markdown(f"""
+                <div class='milestone-notification'>
+                    <h3>🏆 Milestone Achievement: {milestone_weeks}-Week Streak!</h3>
+                </div>
+                """, unsafe_allow_html=True)
             
             st.markdown("""
             <div class='section-header'>
@@ -1408,7 +1571,116 @@ if st.session_state.data is not None and st.session_state.view_start_date is not
                 </div>
                 """, unsafe_allow_html=True)
     
-    with tab3:
+    with tabs[3]:  # Weekly Leaderboards Tab
+        # NEW: Weekly Leaderboards Tab
+        st.markdown("<h2 class='section-header'>Weekly Leaderboards</h2>", unsafe_allow_html=True)
+        st.markdown("""
+        <div class='info-box'>
+            <p class='dark-text'>See how everyone ranked each week of the challenge</p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        if weekly_stats:
+            # Weekly selector
+            week_options = [f"Week {stat['week_num']}: {stat['start_date']} to {stat['end_date']}" 
+                          for stat in weekly_stats if not stat.get('future_week', False)]
+            
+            # Default to most recent week
+            default_index = len(week_options) - 1
+            selected_week_option = st.selectbox("Select Week", options=week_options, index=default_index, key="weekly_selector")
+            
+            # Get the selected week number
+            selected_week_num = int(selected_week_option.split(":")[0].replace("Week ", ""))
+            
+            # Find the corresponding week stats
+            selected_week_stats = next((stat for stat in weekly_stats if stat['week_num'] == selected_week_num), None)
+            
+            if selected_week_stats and not selected_week_stats.get('future_week', False):
+                # Get the leaderboard data
+                week_metrics = selected_week_stats['leaderboards']
+                
+                # Display streak leaderboard for this week
+                st.markdown("<h3 class='section-header'>Weekly Streak Leaderboard</h3>", unsafe_allow_html=True)
+                
+                # Create the streak leaderboard
+                streak_board = week_metrics[['streak_rank', 'Name', 'longest_streak', 'perfect_streak_potential', 'highest_milestone']].copy()
+                streak_board = streak_board.sort_values('streak_rank')
+                
+                # Add crown emoji next to names with perfect streak in this week only
+                def add_weekly_crown_and_milestone(row):
+                    name = row['Name']
+                    has_perfect_week = row['perfect_streak_potential']  # For this week only
+                    milestone = row['highest_milestone']
+                    
+                    display_name = name
+                    if has_perfect_week:
+                        display_name = f"👑 {display_name}"
+                        
+                    milestone_badge = get_milestone_badge(milestone)
+                    if milestone_badge:
+                        # Use HTML to display the milestone badge
+                        display_name = f"{display_name} {milestone_badge}"
+                        
+                    return display_name
+                
+                # Apply crown and milestone badges
+                streak_board['Name'] = streak_board.apply(add_weekly_crown_and_milestone, axis=1)
+                
+                # Format the leaderboard
+                streak_board = streak_board.rename(columns={
+                    'streak_rank': 'Rank',
+                    'longest_streak': 'Longest Streak'
+                })
+                
+                # Drop unnecessary columns
+                streak_board = streak_board.drop(['perfect_streak_potential', 'highest_milestone'], axis=1)
+                
+                # CHANGE HERE: Use markdown with to_html instead of dataframe
+                st.markdown(streak_board.to_html(escape=False, index=False, classes='custom-table'), unsafe_allow_html=True)
+                
+                # Display 10K days leaderboard for this week
+                st.markdown("<h3 class='section-header'>Weekly 10K Days Leaderboard</h3>", unsafe_allow_html=True)
+                
+                # Create the 10K days leaderboard
+                days_board = week_metrics[['days_rank', 'Name', 'days_with_10k', 'perfect_streak_potential', 'highest_milestone']].copy()
+                days_board = days_board.sort_values('days_rank')
+                
+                # Apply crown and milestone badges
+                days_board['Name'] = days_board.apply(add_weekly_crown_and_milestone, axis=1)
+                
+                # Format the leaderboard
+                days_board = days_board.rename(columns={
+                    'days_rank': 'Rank',
+                    'days_with_10k': '10K Days'
+                })
+                
+                # Drop unnecessary columns
+                days_board = days_board.drop(['perfect_streak_potential', 'highest_milestone'], axis=1)
+                
+                # CHANGE HERE: Use markdown with to_html instead of dataframe
+                st.markdown(days_board.to_html(escape=False, index=False, classes='custom-table'), unsafe_allow_html=True)
+                
+                # Add note about crown icons and milestone badges
+                st.markdown("""
+                <div class='info-box'>
+                    <p class='dark-text'>👑 Crown indicates boggers who hit 10K steps every day in this week</p>
+                    <p class='dark-text'>🏆 Milestone badges show the highest streak milestone achieved (in weeks)</p>
+                </div>
+                """, unsafe_allow_html=True)
+            else:
+                st.markdown("""
+                <div class='info-box'>
+                    <p class='dark-text'>Data for this week is not available yet.</p>
+                </div>
+                """, unsafe_allow_html=True)
+        else:
+            st.markdown("""
+            <div class='info-box'>
+                <p class='dark-text'>Not enough data to calculate weekly leaderboards.</p>
+            </div>
+            """, unsafe_allow_html=True)
+    
+    with tabs[4]:  # MVPs tab
         st.markdown("<h2 class='section-header'>Weekly MVPs</h2>", unsafe_allow_html=True)
         st.markdown("""
         <div class='info-box'>
@@ -1416,18 +1688,15 @@ if st.session_state.data is not None and st.session_state.view_start_date is not
         </div>
         """, unsafe_allow_html=True)
         
-        # Calculate weekly MVPs
-        weekly_mvps = calculate_weekly_mvps(df, date_cols)
-        
-        if weekly_mvps:
+        if weekly_stats:
             # Display MVPs in cards - stacked for mobile
-            for mvp in weekly_mvps:
-                week_range = f"{mvp['start_date']} to {mvp['end_date']}"
+            for week_stat in weekly_stats:
+                week_range = f"{week_stat['start_date']} to {week_stat['end_date']}"
                 
                 # Create expandable section for each week
-                with st.expander(f"Week {mvp['week_num']}: {week_range}", expanded=mvp['week_num'] == 1):
+                with st.expander(f"Week {week_stat['week_num']}: {week_range}", expanded=week_stat['week_num'] == 1):
                     # Check if this is a future week
-                    if mvp.get('future_week', False):
+                    if week_stat.get('future_week', False):
                         st.markdown("""
                         <div class='future-week'>
                             <h4>📅 Week Not Yet Available</h4>
@@ -1438,17 +1707,17 @@ if st.session_state.data is not None and st.session_state.view_start_date is not
                         # Mobile-friendly: stack MVPs vertically
                         st.markdown(f"""
                         <div class='mvp-card'>
-                            <h4 class='dark-text'>Longest Streak MVP{" (Tie)" if mvp['streak_mvp'].get('is_tie', False) else ""}</h4>
-                            <p style='font-size: 1.2rem;' class='dark-text'>{mvp['streak_mvp']['name']}</p>
-                            <p class='dark-text'>{mvp['streak_mvp']['streak']} consecutive days</p>
+                            <h4 class='dark-text'>Longest Streak MVP{" (Tie)" if week_stat['streak_mvp'].get('is_tie', False) else ""}</h4>
+                            <p style='font-size: 1.2rem;' class='dark-text'>{week_stat['streak_mvp']['name']}</p>
+                            <p class='dark-text'>{week_stat['streak_mvp']['streak']} consecutive days</p>
                         </div>
                         """, unsafe_allow_html=True)
                         
                         st.markdown(f"""
                         <div class='mvp-card'>
-                            <h4 class='dark-text'>Most 10K Days MVP{" (Tie)" if mvp['days_mvp'].get('is_tie', False) else ""}</h4>
-                            <p style='font-size: 1.2rem;' class='dark-text'>{mvp['days_mvp']['name']}</p>
-                            <p class='dark-text'>{mvp['days_mvp']['days']} days with 10K+ steps</p>
+                            <h4 class='dark-text'>Most 10K Days MVP{" (Tie)" if week_stat['days_mvp'].get('is_tie', False) else ""}</h4>
+                            <p style='font-size: 1.2rem;' class='dark-text'>{week_stat['days_mvp']['name']}</p>
+                            <p class='dark-text'>{week_stat['days_mvp']['days']} days with 10K+ steps</p>
                         </div>
                         """, unsafe_allow_html=True)
         else:
@@ -1458,7 +1727,7 @@ if st.session_state.data is not None and st.session_state.view_start_date is not
             </div>
             """, unsafe_allow_html=True)
     
-    with tab4:
+    with tabs[5]:  # Stats tab
         st.markdown("<h2 class='section-header'>Community Statistics</h2>", unsafe_allow_html=True)
         st.markdown("""
         <div class='info-box'>
