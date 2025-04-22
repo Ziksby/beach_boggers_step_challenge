@@ -1412,6 +1412,15 @@ if st.session_state.data is not None and st.session_state.view_start_date is not
         display_milestone_hall_of_fame()
     
     with tabs[2]:  # Details tab
+        st.markdown("""
+        <div class='milestone-notification' style="background-color: #5c3c10; border-left-color: #ffc107;">
+            <h3>⚠️ Known Issue</h3>
+            <p class='dark-text'>When selecting a bogger, the app may return to the Leaderboards tab. 
+            If this happens, simply click back to the Details tab to see your selected bogger's information. 
+            This will be fixed in a future update.</p>
+        </div>
+        """, unsafe_allow_html=True)
+        
         st.markdown("<h2 class='section-header'>Bogger Details</h2>", unsafe_allow_html=True)
         
         # Improved bogger selection dropdown
