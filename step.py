@@ -1821,7 +1821,7 @@ A: Bragging rights!</p>
 A: Once a week until the competition is over. Note that I might forget to do so. So just remind me if I forget.</p>
 
 <p><b>Q: When is Paris Saint-Germain playing Arsenal in the UCL semi-finals?</b><br>
-A: First leg 29 April 9pm SAST, Second leg 7th May 9pm SAST</p>
+A: Arsenal lost the first leg 1-0, Second leg 7th May 9pm SAST</p>
 
 <p><b>Q: Batsi don't you have a thesis to write?</b><br>
 A: You're goddamn right I do. But I wanted to procrastinate.</p>
