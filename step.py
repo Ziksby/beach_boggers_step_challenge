@@ -24,6 +24,49 @@ script_dir = os.path.dirname(os.path.abspath(__file__))
 csv_files = glob.glob(os.path.join(script_dir, "*.csv"))
 DEFAULT_CSV_PATH = csv_files[0] if csv_files else None  # Use the first CSV found, or None if none found
 
+# Function to update Benjamin Hoefling's step data
+def update_benjamin_data(df):
+    # Create a copy of the dataframe to avoid modifying the original
+    df_updated = df.copy()
+    
+    # Find Benjamin Hoefling's row
+    ben_idx = df_updated[df_updated['Name'] == 'Benjamin Hoefling'].index
+    if len(ben_idx) == 0:
+        st.warning("Benjamin Hoefling not found in the CSV file. No data updated.")
+        return df_updated
+    
+    ben_idx = ben_idx[0]
+    
+    # Store original values to show the change
+    original_total = df_updated.loc[ben_idx, 'Total Steps']
+    
+    # Update the step counts for the specified dates
+    df_updated.loc[ben_idx, '2025-04-27'] = 12601
+    df_updated.loc[ben_idx, '2025-04-28'] = 14662
+    df_updated.loc[ben_idx, '2025-04-29'] = 18555
+    
+    # Recalculate the total steps
+    # Get all date columns from the dataframe
+    date_cols = get_date_columns(df_updated)
+    df_updated.loc[ben_idx, 'Total Steps'] = df_updated.loc[ben_idx, date_cols].sum()
+    
+    # Calculate average daily steps
+    num_days = len(date_cols)
+    df_updated.loc[ben_idx, 'Avg Daily Steps'] = round(df_updated.loc[ben_idx, 'Total Steps'] / num_days)
+    
+    # Log the changes
+    st.sidebar.success(f"Updated Benjamin Hoefling's step data:")
+    st.sidebar.info(f"Original total steps: {original_total}")
+    st.sidebar.info(f"New total steps: {df_updated.loc[ben_idx, 'Total Steps']}")
+    st.sidebar.info(f"Difference: {df_updated.loc[ben_idx, 'Total Steps'] - original_total}")
+    
+    # Optionally save the updated data to a new CSV file
+    output_path = os.path.join(script_dir, "stepup_data_updated.csv")
+    df_updated.to_csv(output_path, index=False)
+    # st.sidebar.info(f"Updated data saved to {output_path}")
+    
+    return df_updated
+
 # Set page configuration - Modified for better mobile experience
 st.set_page_config(
     page_title="84-Day Step Challenge",
@@ -385,6 +428,8 @@ if 'available_weeks' not in st.session_state:
     st.session_state.available_weeks = []
 if 'current_tab' not in st.session_state:
     st.session_state.current_tab = 0
+if 'data_updated' not in st.session_state:
+    st.session_state.data_updated = False
 
 # Define celestial body distances (in km)
 EARTH_CIRCUMFERENCE = 40075  # km
@@ -1239,6 +1284,11 @@ def load_initial_data():
             # Clean and preprocess the data
             df_clean = preprocess_data(df)
             
+            # Update Benjamin Hoefling's data if not already updated
+            if not st.session_state.data_updated:
+                df_clean = update_benjamin_data(df_clean)
+                st.session_state.data_updated = True
+            
             # Store the data in session state
             st.session_state.data = df_clean
             
@@ -1823,7 +1873,4 @@ A: Once a week until the competition is over. Note that I might forget to do so.
 <p><b>Q: When is Paris Saint-Germain playing Arsenal in the UCL semi-finals?</b><br>
 A: Arsenal lost the first leg 1-0, Arsenal lost the second leg 2-1 :(</p>
 
-<p><b>Q: Batsi don't you have a thesis to write?</b><br>
-A: You're goddamn right I do. But I wanted to procrastinate.</p>
-</div>
 """, unsafe_allow_html=True)
