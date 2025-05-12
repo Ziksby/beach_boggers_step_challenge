@@ -55,10 +55,10 @@ def update_benjamin_data(df):
     df_updated.loc[ben_idx, 'Avg Daily Steps'] = round(df_updated.loc[ben_idx, 'Total Steps'] / num_days)
     
     # Log the changes
-    st.sidebar.success(f"Updated Benjamin Hoefling's step data:")
-    st.sidebar.info(f"Original total steps: {original_total}")
-    st.sidebar.info(f"New total steps: {df_updated.loc[ben_idx, 'Total Steps']}")
-    st.sidebar.info(f"Difference: {df_updated.loc[ben_idx, 'Total Steps'] - original_total}")
+    st.sidebar.success(f"Updated Benjamin Hoefling's step data.")
+    # st.sidebar.info(f"Original total steps: {original_total}")
+    # st.sidebar.info(f"New total steps: {df_updated.loc[ben_idx, 'Total Steps']}")
+    # st.sidebar.info(f"Difference: {df_updated.loc[ben_idx, 'Total Steps'] - original_total}")
     
     # Optionally save the updated data to a new CSV file
     output_path = os.path.join(script_dir, "stepup_data_updated.csv")
