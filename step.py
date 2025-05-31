@@ -1391,8 +1391,8 @@ if st.session_state.data is not None and st.session_state.view_start_date is not
         # Mobile-optimized leaderboards - Stack them vertically instead of side by side
         st.markdown("<h3 class='section-header'>Longest Streak Leaderboard</h3>", unsafe_allow_html=True)
         
-        # Create the streak leaderboard
-        streak_leaderboard = metrics_df[['streak_rank', 'Name', 'longest_streak', 'perfect_streak_potential', 'highest_milestone']].copy()
+# Create the streak leaderboard
+        streak_leaderboard = metrics_df[['streak_rank', 'Name', 'longest_streak', 'total_steps', 'perfect_streak_potential', 'highest_milestone']].copy()
         streak_leaderboard = streak_leaderboard.sort_values('streak_rank')
         
         # Add crown emoji next to names with perfect streaks and milestone badges
@@ -1415,10 +1415,14 @@ if st.session_state.data is not None and st.session_state.view_start_date is not
         # Apply crown highlighting and milestone badges
         streak_leaderboard['Name'] = streak_leaderboard.apply(add_crown_and_milestone, axis=1)
         
+        # Format total steps with commas
+        streak_leaderboard['total_steps'] = streak_leaderboard['total_steps'].apply(lambda x: f"{int(x):,}")
+        
         # Format the leaderboard
         streak_leaderboard = streak_leaderboard.rename(columns={
             'streak_rank': 'Rank',
-            'longest_streak': 'Longest Streak'
+            'longest_streak': 'Longest Streak',
+            'total_steps': 'Total Steps'
         })
         
         # Drop unnecessary columns
@@ -1430,16 +1434,20 @@ if st.session_state.data is not None and st.session_state.view_start_date is not
         st.markdown("<h3 class='section-header'>Most 10K Days Leaderboard</h3>", unsafe_allow_html=True)
         
         # Create the 10K days leaderboard
-        days_leaderboard = metrics_df[['days_rank', 'Name', 'days_with_10k', 'perfect_streak_potential', 'highest_milestone']].copy()
+        days_leaderboard = metrics_df[['days_rank', 'Name', 'days_with_10k', 'total_steps', 'perfect_streak_potential', 'highest_milestone']].copy()
         days_leaderboard = days_leaderboard.sort_values('days_rank')
         
         # Apply crown highlighting and milestone badges
         days_leaderboard['Name'] = days_leaderboard.apply(add_crown_and_milestone, axis=1)
         
+        # Format total steps with commas
+        days_leaderboard['total_steps'] = days_leaderboard['total_steps'].apply(lambda x: f"{int(x):,}")
+        
         # Format the leaderboard
         days_leaderboard = days_leaderboard.rename(columns={
             'days_rank': 'Rank',
-            'days_with_10k': '10K Days'
+            'days_with_10k': '10K Days',
+            'total_steps': 'Total Steps'
         })
         
         # Drop unnecessary columns
