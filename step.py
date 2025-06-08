@@ -50,7 +50,7 @@ def update_step_data(df):
         num_days = len(date_cols)
         df_updated.loc[ben_idx, 'Avg Daily Steps'] = round(df_updated.loc[ben_idx, 'Total Steps'] / num_days)
         
-        st.sidebar.success(f"Updated Benjamin Hoefling's step data.")
+        st.sidebar.success(f"Updated Benjamin Hoefling's and Batsi Ziki's step data.")
     else:
         st.warning("Benjamin Hoefling not found in the CSV file.")
     
