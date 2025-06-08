@@ -24,46 +24,64 @@ script_dir = os.path.dirname(os.path.abspath(__file__))
 csv_files = glob.glob(os.path.join(script_dir, "*.csv"))
 DEFAULT_CSV_PATH = csv_files[0] if csv_files else None  # Use the first CSV found, or None if none found
 
-# Function to update Benjamin Hoefling's step data
-def update_benjamin_data(df):
+# Function to update Benjamin Hoefling's and Batsi Ziki's step data
+def update_step_data(df):
     # Create a copy of the dataframe to avoid modifying the original
     df_updated = df.copy()
     
-    # Find Benjamin Hoefling's row
+    # Update Benjamin Hoefling's data
     ben_idx = df_updated[df_updated['Name'] == 'Benjamin Hoefling'].index
-    if len(ben_idx) == 0:
-        st.warning("Benjamin Hoefling not found in the CSV file. No data updated.")
-        return df_updated
+    if len(ben_idx) > 0:
+        ben_idx = ben_idx[0]
+        
+        # Store original values to show the change
+        ben_original_total = df_updated.loc[ben_idx, 'Total Steps']
+        
+        # Update the step counts for the specified dates
+        df_updated.loc[ben_idx, '2025-04-27'] = 12601
+        df_updated.loc[ben_idx, '2025-04-28'] = 14662
+        df_updated.loc[ben_idx, '2025-04-29'] = 18555
+        
+        # Recalculate the total steps
+        date_cols = get_date_columns(df_updated)
+        df_updated.loc[ben_idx, 'Total Steps'] = df_updated.loc[ben_idx, date_cols].sum()
+        
+        # Calculate average daily steps
+        num_days = len(date_cols)
+        df_updated.loc[ben_idx, 'Avg Daily Steps'] = round(df_updated.loc[ben_idx, 'Total Steps'] / num_days)
+        
+        st.sidebar.success(f"Updated Benjamin Hoefling's step data.")
+    else:
+        st.warning("Benjamin Hoefling not found in the CSV file.")
     
-    ben_idx = ben_idx[0]
+    # Update Batsi Ziki's data
+    batsi_idx = df_updated[df_updated['Name'] == 'Batsi Ziki'].index
+    if len(batsi_idx) > 0:
+        batsi_idx = batsi_idx[0]
+        
+        # Store original values to show the change
+        batsi_original_total = df_updated.loc[batsi_idx, 'Total Steps']
+        
+        # Update the step count for May 25th, 2025
+        df_updated.loc[batsi_idx, '2025-05-25'] = 13189
+        
+        # Recalculate the total steps
+        date_cols = get_date_columns(df_updated)
+        df_updated.loc[batsi_idx, 'Total Steps'] = df_updated.loc[batsi_idx, date_cols].sum()
+        
+        # Calculate average daily steps
+        num_days = len(date_cols)
+        df_updated.loc[batsi_idx, 'Avg Daily Steps'] = round(df_updated.loc[batsi_idx, 'Total Steps'] / num_days)
+        
+        st.sidebar.success(f"Updated Batsi Ziki's step data.")
+        # Log the change
+        st.sidebar.info(f"Batsi's new total steps: {df_updated.loc[batsi_idx, 'Total Steps']:,} (changed from {batsi_original_total:,})")
+    else:
+        st.warning("Batsi Ziki not found in the CSV file.")
     
-    # Store original values to show the change
-    original_total = df_updated.loc[ben_idx, 'Total Steps']
-    
-    # Update the step counts for the specified dates
-    df_updated.loc[ben_idx, '2025-04-27'] = 12601
-    df_updated.loc[ben_idx, '2025-04-28'] = 14662
-    df_updated.loc[ben_idx, '2025-04-29'] = 18555
-    
-    # Recalculate the total steps
-    # Get all date columns from the dataframe
-    date_cols = get_date_columns(df_updated)
-    df_updated.loc[ben_idx, 'Total Steps'] = df_updated.loc[ben_idx, date_cols].sum()
-    
-    # Calculate average daily steps
-    num_days = len(date_cols)
-    df_updated.loc[ben_idx, 'Avg Daily Steps'] = round(df_updated.loc[ben_idx, 'Total Steps'] / num_days)
-    
-    # Log the changes
-    st.sidebar.success(f"Updated Benjamin Hoefling's step data.")
-    # st.sidebar.info(f"Original total steps: {original_total}")
-    # st.sidebar.info(f"New total steps: {df_updated.loc[ben_idx, 'Total Steps']}")
-    # st.sidebar.info(f"Difference: {df_updated.loc[ben_idx, 'Total Steps'] - original_total}")
-    
-    # Optionally save the updated data to a new CSV file
+    # Save the updated data to a new CSV file
     output_path = os.path.join(script_dir, "stepup_data_updated.csv")
     df_updated.to_csv(output_path, index=False)
-    # st.sidebar.info(f"Updated data saved to {output_path}")
     
     return df_updated
 
@@ -1284,9 +1302,9 @@ def load_initial_data():
             # Clean and preprocess the data
             df_clean = preprocess_data(df)
             
-            # Update Benjamin Hoefling's data if not already updated
+            # Update step data if not already updated
             if not st.session_state.data_updated:
-                df_clean = update_benjamin_data(df_clean)
+                df_clean = update_step_data(df_clean)
                 st.session_state.data_updated = True
             
             # Store the data in session state
