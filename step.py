@@ -41,6 +41,12 @@ def update_step_data(df):
         df_updated.loc[ben_idx, '2025-04-27'] = 12601
         df_updated.loc[ben_idx, '2025-04-28'] = 14662
         df_updated.loc[ben_idx, '2025-04-29'] = 18555
+        df_updated.loc[ben_idx, '2025-06-30'] = 10311
+        df_updated.loc[ben_idx, '2025-07-01'] = 10820
+        df_updated.loc[ben_idx, '2025-07-02'] = 22708
+
+
+
         
         # Recalculate the total steps
         date_cols = get_date_columns(df_updated)
